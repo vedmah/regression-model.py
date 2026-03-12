@@ -7,8 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
 import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.preprocessing import StandardScaler
+
 
 # Page config
 st.set_page_config(page_title="Linear Regression - Travel Price Predictor", layout="wide")
