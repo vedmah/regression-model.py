@@ -44,10 +44,10 @@ st.markdown(
 def load_data():
     """Load the diabetes dataset and return a tidy DataFrame."""
     diabetes = load_diabetes()
-    # The data are already scaled; keep them that way for simplicity.
+    # The data are already standardized; keep them that way for simplicity.
     df = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
     df["target"] = diabetes.target
-    return df, diabetes.feature_names
+    return df, diabetes.feature_names      # <-- unchanged
 
 df, feature_names = load_data()
 
@@ -57,10 +57,16 @@ df, feature_names = load_data()
 st.sidebar.header("⚙️ Settings")
 
 # 3.1 Feature selector (simple regression → single column)
+default_feature = "bmi"
+if default_feature in feature_names:
+    default_idx = feature_names.index(default_feature)
+else:
+    default_idx = 0               # fall back to the first feature
+
 selected_feature = st.sidebar.selectbox(
     "Select predictor (X) → simple linear regression",
     options=feature_names,
-    index=feature_names.tolist().index("bmi")  # default to BMI (often used)
+    index=default_idx,           # <-- fixed line
 )
 
 # 3.2 Train‑test split ratio
@@ -179,7 +185,7 @@ ax2.scatter(
     label="Test observations",
 )
 
-# 45‑degree line (perfect predictions)
+# 45‑degree reference line (perfect predictions)
 lims = [
     np.min([y_test.min(), y_test_pred.min()]) - 5,
     np.max([y_test.max(), y_test_pred.max()]) + 5,
