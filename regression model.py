@@ -1,219 +1,228 @@
+# --------------------------------------------------------------
+# app.py  –  Simple Linear Regression demo with Streamlit
+# --------------------------------------------------------------
+
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split 
+from sklearn.datasets import load_diabetes
+from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
-import plotly.express as px
-import plotly.graph_objects as go
-from sklearn.preprocessing import StandardScaler
+import matplotlib.pyplot as plt
+import seaborn as sns
 
+# --------------------------------------------------------------
+# 0. Page configuration
+# --------------------------------------------------------------
+st.set_page_config(
+    page_title="Simple Linear Regression Demo",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-# Page config
-st.set_page_config(page_title="Linear Regression - Travel Price Predictor", layout="wide")
+# --------------------------------------------------------------
+# 1. Title & description
+# --------------------------------------------------------------
+st.title("📊 Simple Linear Regression with Streamlit")
+st.markdown(
+    """
+    This app demonstrates a **single‑feature linear regression** on the classic **Diabetes** data set
+    (continuous target: disease progression).  
 
-# Custom CSS
-st.markdown("""
-<style>
-.main-header {font-size: 3rem; color: #d32f2f; text-align: center;}
-.metric-card {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-              padding: 1.5rem; border-radius: 15px; color: white; text-align: center;}
-</style>
-""", unsafe_allow_html=True)
+    * Choose a predictor variable.  
+    * Adjust the train‑test split.  
+    * See the fitted regression line, performance metrics, and a comparison of actual vs. predicted values.
+    """
+)
 
-def create_travel_dataset():
-    """Generate realistic travel dataset for India"""
-    np.random.seed(42)
-    n_samples = 1000
-    
-    data = {
-        'distance_km': np.random.normal(800, 300, n_samples),
-        'travelers': np.random.randint(1, 6, n_samples),
-        'season_factor': np.random.choice([1.0, 1.2, 1.5], n_samples),
-        'luxury_level': np.random.choice([1, 2, 3], n_samples),
-        'booking_days_prior': np.random.randint(10, 180, n_samples)
-    }
-    
-    # Generate realistic price (target variable)
-    data['price_rs'] = (data['distance_km'] * 12 + 
-                       data['travelers'] * 2500 + 
-                       data['season_factor'] * 3000 + 
-                       data['luxury_level'] * 4000 -
-                       data['booking_days_prior'] * 8 +
-                       np.random.normal(0, 1500, n_samples))
-    
-    # Ensure positive prices
-    data['price_rs'] = np.maximum(data['price_rs'], 1000)
-    
-    return pd.DataFrame(data)
+# --------------------------------------------------------------
+# 2. Load & cache the dataset
+# --------------------------------------------------------------
+@st.cache_data
+def load_data():
+    """Load the diabetes dataset and return a tidy DataFrame."""
+    diabetes = load_diabetes()
+    # The data are already scaled; keep them that way for simplicity.
+    df = pd.DataFrame(diabetes.data, columns=diabetes.feature_names)
+    df["target"] = diabetes.target
+    return df, diabetes.feature_names
 
-def main():
-    st.markdown('<h1 class="main-header">✈️ Travel Price Predictor</h1>', unsafe_allow_html=True)
-    st.markdown("**Linear Regression Model** - Predict trip costs across India")
-    
-    # Load data
-    @st.cache_data
-    def load_data():
-        return create_travel_dataset()
-    
-    df = load_data()
-    
-    # Metrics row
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h2>{len(df):,}</h2>
-            <p>Samples</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h2>₹{df['price_rs'].mean():,.0f}</h2>
-            <p>Avg Price</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h2>{df['price_rs'].std():.0f}</h2>
-            <p>Std Dev</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    with col4:
-        st.markdown(f"""
-        <div class="metric-card">
-            <h2>{len(df.columns)-1}</h2>
-            <p>Features</p>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # EDA Section
-    st.header("📊 Exploratory Data Analysis")
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Data Overview")
-        st.dataframe(df.describe(), use_container_width=True)
-    
-    with col2:
-        st.subheader("Correlation Matrix")
-        fig_heatmap = px.imshow(df.corr(), aspect="auto", color_continuous_scale="RdBu_r")
-        st.plotly_chart(fig_heatmap, use_container_width=True)
-    
-    # Model Training Section
-    st.header("🚀 Model Training & Evaluation")
-    
-    # Train-test split
-    X = df.drop('price_rs', axis=1)
-    y = df['price_rs']
-    
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-    
-    # Scale features
-    scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
-    
-    # Train model
-    model = LinearRegression()
-    model.fit(X_train_scaled, y_train)
-    
-    # Predictions
-    y_train_pred = model.predict(X_train_scaled)
-    y_test_pred = model.predict(X_test_scaled)
-    
-    # Model Metrics
-    col1, col2, col3, col4 = st.columns(4)
-    
-    train_r2 = r2_score(y_train, y_train_pred)
-    test_r2 = r2_score(y_test, y_test_pred)
-    train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
-    test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
-    
-    with col1:
-        st.metric("Train R²", f"{train_r2:.3f}")
-    with col2:
-        st.metric("Test R²", f"{test_r2:.3f}")
-    with col3:
-        st.metric("Train RMSE", f"₹{train_rmse:,.0f}")
-    with col4:
-        st.metric("Test RMSE", f"₹{test_rmse:,.0f}")
-    
-    # Visualizations
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.subheader("Actual vs Predicted (Test Set)")
-        fig1 = px.scatter(
-            x=y_test, y=y_test_pred,
-            labels={'x': 'Actual Price (₹)', 'y': 'Predicted Price (₹)'},
-            title="Model Performance"
-        )
-        fig1.add_shape(type="line", x0=y_test.min(), y0=y_test.min(), 
-                      x1=y_test.max(), y1=y_test.max(), line=dict(color="red"))
-        st.plotly_chart(fig1, use_container_width=True)
-    
-    with col2:
-        st.subheader("Residuals Plot")
-        residuals = y_test - y_test_pred
-        fig2 = px.scatter(x=y_test_pred, y=residuals, 
-                         labels={'x': 'Predicted', 'y': 'Residuals'},
-                         title="Residual Analysis")
-        fig2.add_hline(y=0, line_dash="dash", line_color="red")
-        st.plotly_chart(fig2, use_container_width=True)
-    
-    # Feature Importance
-    st.subheader("📈 Feature Coefficients")
-    coef_df = pd.DataFrame({
-        'Feature': X.columns,
-        'Coefficient': model.coef_
-    }).sort_values('Coefficient', key=abs, ascending=False)
-    
-    fig_coef = px.bar(coef_df, x='Coefficient', y='Feature', 
-                     orientation='h', title="Feature Impact on Price")
-    st.plotly_chart(fig_coef, use_container_width=True)
-    
-    # Prediction Interface
-    st.header("🔮 Price Predictor")
-    col1, col2, col3, col4, col5 = st.columns(5)
-    
-    with col1:
-        dist = st.slider("Distance (km)", 100, 2000, 800)
-    with col2:
-        trav = st.slider("Travelers", 1, 6, 2)
-    with col3:
-        lux = st.select_slider("Luxury Level", options=[1, 2, 3])
-    with col4:
-        seas = st.select_slider("Season", options=[1.0, 1.2, 1.5])
-    with col5:
-        days = st.slider("Days Prior", 10, 180, 60)
-    
-    if st.button("🚀 Predict Price", type="primary"):
-        # Create prediction input
-        input_data = np.array([[dist, trav, seas, lux, days]])
-        input_scaled = scaler.transform(input_data)
-        prediction = model.predict(input_scaled)[0]
-        
-        st.success(f"**Predicted Trip Cost: ₹{prediction:,.0f}**")
-        st.info(f"✅ Model Confidence: R² = {test_r2:.3f}")
-    
-    # Model Summary
-    st.header("📋 Model Summary")
-    st.info(f"""
-    **✅ All Requirements Met:**
-    - Continuous target: Trip Price (₹)
-    - Train/Test Split: 80/20
-    - Metrics: R²={test_r2:.3f}, RMSE=₹{test_rmse:,.0f}
-    - Visualizations: Actual vs Predicted + Residuals
-    - Interactive Predictor
-    """)
+df, feature_names = load_data()
 
-if __name__ == "__main__":
-    main()
+# --------------------------------------------------------------
+# 3. Sidebar – user controls
+# --------------------------------------------------------------
+st.sidebar.header("⚙️ Settings")
+
+# 3.1 Feature selector (simple regression → single column)
+selected_feature = st.sidebar.selectbox(
+    "Select predictor (X) → simple linear regression",
+    options=feature_names,
+    index=feature_names.tolist().index("bmi")  # default to BMI (often used)
+)
+
+# 3.2 Train‑test split ratio
+test_size = st.sidebar.slider(
+    "Test set proportion",
+    min_value=0.1,
+    max_value=0.5,
+    value=0.2,
+    step=0.05,
+    help="Fraction of the data that will be held out for testing."
+)
+
+# 3.3 Random state for reproducibility
+random_state = st.sidebar.number_input(
+    "Random seed",
+    min_value=0,
+    max_value=9999,
+    value=42,
+    step=1,
+)
+
+# --------------------------------------------------------------
+# 4. Prepare X and y
+# --------------------------------------------------------------
+X = df[[selected_feature]].values  # shape (n_samples, 1)
+y = df["target"].values
+
+# --------------------------------------------------------------
+# 5. Train‑test split
+# --------------------------------------------------------------
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=test_size, random_state=random_state
+)
+
+# --------------------------------------------------------------
+# 6. Model training
+# --------------------------------------------------------------
+model = LinearRegression()
+model.fit(X_train, y_train)
+
+# --------------------------------------------------------------
+# 7. Predictions
+# --------------------------------------------------------------
+y_train_pred = model.predict(X_train)
+y_test_pred  = model.predict(X_test)
+
+# --------------------------------------------------------------
+# 8. Evaluation metrics
+# --------------------------------------------------------------
+def compute_metrics(y_true, y_pred, dataset_name):
+    mse = mean_squared_error(y_true, y_pred)
+    r2 = r2_score(y_true, y_pred)
+    st.metric(label=f"{dataset_name} MSE", value=f"{mse:,.2f}")
+    st.metric(label=f"{dataset_name} R²", value=f"{r2:.3f}")
+
+st.subheader("🔎 Model performance")
+col1, col2 = st.columns(2)
+with col1:
+    st.write("**Training set**")
+    compute_metrics(y_train, y_train_pred, "Train")
+with col2:
+    st.write("**Test set**")
+    compute_metrics(y_test, y_test_pred, "Test")
+
+# --------------------------------------------------------------
+# 9. Visualisation – Regression line + points
+# --------------------------------------------------------------
+st.subheader("📈 Regression line & data points")
+fig, ax = plt.subplots(figsize=(8, 5))
+
+# Plot training points
+ax.scatter(
+    X_train,
+    y_train,
+    color="steelblue",
+    alpha=0.6,
+    label="Train data",
+    edgecolor="k",
+)
+
+# Plot test points
+ax.scatter(
+    X_test,
+    y_test,
+    color="orange",
+    alpha=0.6,
+    label="Test data",
+    edgecolor="k",
+)
+
+# Create a dense X range for the line
+x_line = np.linspace(X.min() - 0.1, X.max() + 0.1, 200).reshape(-1, 1)
+y_line = model.predict(x_line)
+ax.plot(x_line, y_line, color="darkred", linewidth=2, label="Fitted line")
+
+ax.set_xlabel(selected_feature.upper())
+ax.set_ylabel("Target (disease progression)")
+ax.set_title(f"Linear regression on '{selected_feature}'")
+ax.legend()
+ax.grid(True, linestyle="--", alpha=0.5)
+
+st.pyplot(fig)
+
+# --------------------------------------------------------------
+# 10. Visualisation – Actual vs. Predicted (test set)
+# --------------------------------------------------------------
+st.subheader("🔎 Actual vs. Predicted (test set)")
+fig2, ax2 = plt.subplots(figsize=(8, 5))
+
+ax2.scatter(
+    y_test,
+    y_test_pred,
+    color="mediumpurple",
+    alpha=0.7,
+    edgecolor="k",
+    label="Test observations",
+)
+
+# 45‑degree line (perfect predictions)
+lims = [
+    np.min([y_test.min(), y_test_pred.min()]) - 5,
+    np.max([y_test.max(), y_test_pred.max()]) + 5,
+]
+ax2.plot(lims, lims, "k--", linewidth=1, label="Ideal (y = ŷ)")
+
+ax2.set_xlabel("Actual target")
+ax2.set_ylabel("Predicted target")
+ax2.set_title("Actual vs. Predicted values")
+ax2.set_xlim(lims)
+ax2.set_ylim(lims)
+ax2.legend()
+ax2.grid(True, linestyle="--", alpha=0.5)
+
+st.pyplot(fig2)
+
+# --------------------------------------------------------------
+# 11. Download predictions
+# --------------------------------------------------------------
+st.subheader("💾 Download predictions")
+pred_df = pd.DataFrame({
+    "X_" + selected_feature: X_test.ravel(),
+    "actual_target": y_test,
+    "predicted_target": y_test_pred,
+})
+csv = pred_df.to_csv(index=False).encode("utf-8")
+st.download_button(
+    label="Download test predictions as CSV",
+    data=csv,
+    file_name="test_predictions.csv",
+    mime="text/csv",
+)
+
+# --------------------------------------------------------------
+# 12. Optional: show raw data (expandable)
+# --------------------------------------------------------------
+with st.expander("📂 Show first rows of the dataset"):
+    st.dataframe(df.head())
+
+st.caption(
+    """
+    *Data source*: `sklearn.datasets.load_diabetes`.  
+    The features are already standardized (zero mean, unit variance).  
+    The target is a quantitative measure of disease progression one year after baseline.
+    """
+)
